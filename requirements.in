@@ -4,3 +4,4 @@ asyncio
 pydantic
 pandas
 tqdm
+openpyxl

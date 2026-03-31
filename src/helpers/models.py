@@ -17,6 +17,6 @@ class StudiesResponse(BaseModel):
 class StudyMetrics(BaseModel):
     project_name: str
     direction_name: str
-    miovision_id: int
+    miovision_id: str
     date_range_name: str
     average_sample_size: int

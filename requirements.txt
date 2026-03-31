@@ -14,6 +14,8 @@ attrs==26.1.0
     # via aiohttp
 colorama==0.4.6
     # via tqdm
+et-xmlfile==2.0.0
+    # via openpyxl
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -26,6 +28,8 @@ multidict==6.7.1
     #   yarl
 numpy==2.4.4
     # via pandas
+openpyxl==3.1.5
+    # via -r ./requirements.in
 pandas==3.0.2
     # via -r ./requirements.in
 propcache==0.4.1

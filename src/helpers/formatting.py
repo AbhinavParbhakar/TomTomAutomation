@@ -8,7 +8,7 @@ def get_dataframe(metrics: list[StudyMetrics]) -> pd.DataFrame:
 
     df = pd.DataFrame(data=data)
     
-    df = df.groupby(['project_name','miovision_id','date_range_name']).aggregate(
+    df = df.groupby(['project_name','miovision_id','date_range_name'], as_index=False).aggregate(
         {
             'average_sample_size' : 'sum'
         }

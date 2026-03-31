@@ -32,7 +32,7 @@ async def get_study_metrics(
                             "locationName did not follow the expected 'ID Direction' format for study {study_info.id}, location name: {location_name}"
                         )
 
-                    miovision_id = int(location_name_splits[0])
+                    miovision_id = location_name_splits[0]
                     direction_name = location_name_splits[1]
 
                     study_metrics.append(
