@@ -5,3 +5,5 @@ pydantic
 pandas
 tqdm
 openpyxl
+arrow
+tenacity

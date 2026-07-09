@@ -4,52 +4,68 @@ from constants import MAX_STUDIES_PER_PAGE_TRAFFIC_ENDPOINT
 from helpers.models import StudiesResponse, StudyInfo, StudyMetrics
 from tomtom_interactions.models import RouteResponse
 from pydantic_core import ValidationError
+import json
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+async def get_route_response(
+    study_info: StudyInfo, auth_cookies: CookieJar
+) -> RouteResponse:
+    request_url = f"https://inode.app/api/road_analytics/traffic_stats/{study_info.id}/"
+    async with ClientSession(cookie_jar=auth_cookies) as session:
+        async with session.get(request_url) as response:
+            json_response = await response.json()
+            try:
+                route_response = RouteResponse.model_validate(json_response)
+                return route_response
+            except ValidationError as e:
+                print("\n================================")
+                print(f"Status code: {response.status}")
+                with open("errors.json",'a') as file:
+                    file.write(f"\n{json.dumps(json_response, indent=4)}\n")
+                print("================================\n")
+                raise
 
 
 async def get_study_metrics(
     study_info: StudyInfo, auth_cookies: CookieJar
 ) -> list[StudyMetrics]:
     study_metrics = []
-    request_url = f"https://inode.app/api/road_analytics/traffic_stats/{study_info.id}/"
 
-    async with ClientSession(cookie_jar=auth_cookies) as session:
-        async with session.get(request_url) as response:
-            json_response = await response.json()
-            try:
-                route_response = RouteResponse.model_validate(json_response)
+    route_response = await get_route_response(study_info, auth_cookies)
 
-                project_name = route_response.name
-                summaries = route_response.sample_detail.summaries
+    project_name = route_response.name
+    
+    if route_response.sample_detail:
+        summaries = route_response.sample_detail.summaries
 
-                for summary in summaries:
-                    location_name = (
-                        summary.locationName.strip()
-                    )  # Assumes that the location name is in the format "ID Direction"
-                    location_name_splits = location_name.split(" ")
+        for summary in summaries:
+            location_name = (
+                summary.locationName.strip()
+            )  # Assumes that the location name is in the format "ID Direction"
+            location_name_splits = location_name.split(" ")
 
-                    if len(location_name_splits) != 2:
-                        raise Exception(
-                            "locationName did not follow the expected 'ID Direction' format for study {study_info.id}, location name: {location_name}"
-                        )
+            miovision_id = ""
+            direction_name = "None"
+            if len(location_name_splits) == 2:
+                direction_name = location_name_splits[1]
+            
+            miovision_id = location_name_splits[0]
 
-                    miovision_id = location_name_splits[0]
-                    direction_name = location_name_splits[1]
-
-                    study_metrics.append(
-                        StudyMetrics(
-                            project_name=project_name,
-                            miovision_id=miovision_id,
-                            direction_name=direction_name,
-                            date_range_name=summary.dateRangeName,
-                            average_sample_size=int(summary.averageSampleSize),
-                        )
-                    )
-            except ValidationError:
-                print("\n================================")
-                print(f"Status code: {response.status}")
-                print(json_response)
-                print("================================\n")
-                raise
+            study_metrics.append(
+                StudyMetrics(
+                    project_name=project_name,
+                    miovision_id=miovision_id,
+                    direction_name=direction_name,
+                    date_range_name=summary.dateRangeName,
+                    average_sample_size=int(summary.averageSampleSize),
+                )
+            )
+    else:
+        print(f"{project_name} did not have sample_details")
     return study_metrics
 
 

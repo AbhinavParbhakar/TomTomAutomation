@@ -8,6 +8,8 @@ aiosignal==1.4.0
     # via aiohttp
 annotated-types==0.7.0
     # via pydantic
+arrow==1.4.0
+    # via -r ./requirements.in
 asyncio==4.0.0
     # via -r ./requirements.in
 attrs==26.1.0
@@ -41,11 +43,15 @@ pydantic==2.12.5
 pydantic-core==2.41.5
     # via pydantic
 python-dateutil==2.9.0.post0
-    # via pandas
+    # via
+    #   arrow
+    #   pandas
 python-dotenv==1.2.2
     # via -r ./requirements.in
 six==1.17.0
     # via python-dateutil
+tenacity==9.1.4
+    # via -r ./requirements.in
 tqdm==4.67.3
     # via -r ./requirements.in
 typing-extensions==4.15.0
@@ -57,6 +63,8 @@ typing-extensions==4.15.0
 typing-inspection==0.4.2
     # via pydantic
 tzdata==2025.3
-    # via pandas
+    # via
+    #   arrow
+    #   pandas
 yarl==1.23.0
     # via aiohttp
