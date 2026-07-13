@@ -1,4 +1,9 @@
-from tomtom_interactions.models import RouteResponse, TemplateBody, DateRange
+from tomtom_interactions.models import (
+    RouteResponse,
+    TemplateBody,
+    TimeGroupAdvanced,
+    TimeSetAdvanced,
+)
 from constants import (
     TEMPLATE_END_DATE,
     TEMPLATE_START_DATE,
@@ -6,7 +11,29 @@ from constants import (
     DATE_RANGE_MODEL_ARROW_TIME_FORMAT,
 )
 from arrow import Arrow
-from helpers.formatting import convert_v2_to_v1
+from helpers.models import DateRange
+
+
+def convert_time_sets(detail_time_sets: list) -> list[TimeSetAdvanced]:
+    """
+    Converts the detail response's time sets (dayToTimeRanges form) into the
+    advanced time_groups form expected by POST /ts/.
+    """
+    converted: list[TimeSetAdvanced] = list()
+
+    for time_set in detail_time_sets:
+        time_groups = [
+            TimeGroupAdvanced(
+                days=day_ranges["dayOfWeek"][:3],  # "MONDAY" -> "MON"
+                times=day_ranges["timeRanges"],
+            )
+            for day_ranges in time_set["dayToTimeRanges"]
+        ]
+        converted.append(
+            TimeSetAdvanced(name=time_set["name"], time_groups=time_groups)
+        )
+
+    return converted
 
 
 def generate_dateranges(start_date: Arrow, days_per_project: int, end_date: Arrow) -> list[DateRange]:
@@ -15,12 +42,12 @@ def generate_dateranges(start_date: Arrow, days_per_project: int, end_date: Arro
 
     for shift in range(days_per_project):
         shifted_date = start.shift(days=shift)
-        
+
         if shifted_date > end_date:
             print(date_range_list[0].to)
             print(date_range_list[-1].to)
             return date_range_list
-        
+
         shifted_str = shifted_date.format(DATE_RANGE_MODEL_ARROW_TIME_FORMAT)
 
         date_range = {
@@ -43,14 +70,19 @@ def generate_templates_body(
 ) -> TemplateBody:
     return TemplateBody(
         name=template_name,
-        network=convert_v2_to_v1(route_res.network, route_res.timezone),
+        network=[
+            item.model_copy(update={"timezone": route_res.timezone})
+            for item in route_res.network
+        ],
         date_range=date_ranges,
         probe_source=route_res.probe_source,
-        time_sets=route_res.time_sets,
+        time_sets=[
+            time_set.model_dump() for time_set in convert_time_sets(route_res.time_sets)
+        ],
+        is_time_sets_advanced=True,
         frcs=route_res.frcs,
         timezone=route_res.timezone,
         map_version=route_res.map_version,
-        map_type=route_res.map_type,
     )
 
 

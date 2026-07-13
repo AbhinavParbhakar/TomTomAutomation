@@ -5,11 +5,11 @@ from datetime import datetime
 
 load_dotenv()
 
-USERNAME = str(os.getenv("TOMTOM_USERNAME"))
-PASSWORD = str(os.getenv("TOMTOM_PASSWORD"))
+API_TOKEN = str(os.getenv("TOMTOM_API_TOKEN"))
+INODE_API_BASE = "https://inode.app/api/v1/flow"
+
 STUDY_NAME_FORMATS = ["Updated"]
-EXPORT_STUDY_NAME_FILTERS = ["Whitemud"]
-MAX_STUDIES_PER_PAGE_TRAFFIC_ENDPOINT = 100000
+EXPORT_STUDY_NAME_FILTERS = ["Whitemud Dr", "Calgary Trail", "23 Ave"]
 DATE_RANGE_MODEL_ARROW_TIME_FORMAT = "YYYY-MM-DD"
 TEMPLATE_START_NUM = 1
 TEMPLATE_END_NUM = 2

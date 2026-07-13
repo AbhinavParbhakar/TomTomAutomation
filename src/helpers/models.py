@@ -1,18 +1,15 @@
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 class StudyInfo(BaseModel):
     id: int
     name: str
     type: str
-    current_progress: int
-    job_state: str
+    job_state: Optional[str]
     create_time: int
+    create_time_iso: str
     labels: list
-
-class StudiesResponse(BaseModel):
-    count: int
-    page_size: int
-    results: list[StudyInfo]
 
 class StudyMetrics(BaseModel):
     project_name: str
@@ -20,7 +17,7 @@ class StudyMetrics(BaseModel):
     miovision_id: str
     date_range_name: str
     average_sample_size: int
-    
+
 class DateRange(BaseModel):
     name: str
     from_: str = Field(alias="from")

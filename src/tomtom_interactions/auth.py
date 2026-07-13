@@ -1,33 +1,9 @@
-from aiohttp import ClientSession, CookieJar
-
-from constants import PASSWORD, USERNAME
+from constants import API_TOKEN
 
 
-def get_requests_body() -> dict:
-    return {
-        "username": USERNAME,
-        "password": PASSWORD,
-        "rememberMe": "",
-        "check_tfa": True,
-    }
-
-
-def get_request_headers() -> dict:
-    return {
-        "Content-Type": "multipart/form-data; boundary=----WebKitFormBoundary2skZZqYo5Vg766cn",
-        "content-length": "466",
-    }
-
-
-async def get_auth_cookies() -> CookieJar:
+def get_auth_headers() -> dict:
     """
-    Returns authenticated cookies
+    Returns the Authorization header expected by every iNode API endpoint.
+    The token comes from Settings > My Profile > API Access in the dashboard.
     """
-    auth_link = "https://inode.app/api/login/"
-    body = get_requests_body()
-    jar = CookieJar()
-
-    async with ClientSession(cookie_jar=jar) as session:
-        async with session.post(url=auth_link, data=body) as response:
-            await response.json()
-    return jar
+    return {"Authorization": f"Token {API_TOKEN}"}
