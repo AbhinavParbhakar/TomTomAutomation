@@ -90,6 +90,12 @@ async def export_study_csvs(project_name_filter: list[str], save_dir: str) -> li
     if not matching_studies:
         raise Exception(f"No studies matched filters: {project_name_filter}")
 
+    ready_studies = [s for s in matching_studies if s.job_state == "RESULTS_READY"]
+    skipped = len(matching_studies) - len(ready_studies)
+    if skipped:
+        print(f"Skipping {skipped} matching studies that are not RESULTS_READY yet")
+    matching_studies = ready_studies
+
     downloaded_paths: list[Path] = list()
     for study_info in tqdm.tqdm(matching_studies):
         zip_path = await download_study_csv(study_info.id, headers, Path(save_dir))
