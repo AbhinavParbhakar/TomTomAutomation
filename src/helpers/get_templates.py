@@ -14,23 +14,35 @@ from arrow import Arrow
 from helpers.models import DateRange
 
 
+ALL_DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+
+
 def convert_time_sets(detail_time_sets: list) -> list[TimeSetAdvanced]:
     """
     Converts the detail response's time sets (dayToTimeRanges form) into the
     advanced time_groups form expected by POST /ts/.
+
+    The source's day-of-week restrictions are deliberately dropped: each time
+    set is extended to all seven days. Template sources are often single-day
+    studies whose time sets only cover that day's weekday, and the platform
+    rejects copies whose date ranges fall on uncovered weekdays.
     """
     converted: list[TimeSetAdvanced] = list()
 
     for time_set in detail_time_sets:
-        time_groups = [
-            TimeGroupAdvanced(
-                days=day_ranges["dayOfWeek"][:3],  # "MONDAY" -> "MON"
-                times=day_ranges["timeRanges"],
-            )
-            for day_ranges in time_set["dayToTimeRanges"]
-        ]
+        time_ranges: list[str] = list()
+        for day_ranges in time_set["dayToTimeRanges"]:
+            for time_range in day_ranges["timeRanges"]:
+                if time_range not in time_ranges:
+                    time_ranges.append(time_range)
+
         converted.append(
-            TimeSetAdvanced(name=time_set["name"], time_groups=time_groups)
+            TimeSetAdvanced(
+                name=time_set["name"],
+                time_groups=[
+                    TimeGroupAdvanced(days=day, times=time_ranges) for day in ALL_DAYS
+                ],
+            )
         )
 
     return converted

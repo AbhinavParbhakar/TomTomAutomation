@@ -15,36 +15,32 @@ from pathlib import Path
 from asyncio import sleep
 
 
-async def create_template_copies(
-    project_name_filter: str, template_max_num: int, template_min_num: int
-) -> None:
-    seen_templates: set[str] = set()
-
-    filter_names = [
-        (f"{project_name_filter}{num} (2024-01-01-2024-01-24)", num)
-        for num in range(template_min_num, template_max_num + 1)
-    ]
+async def create_template_copies(template_source_names: list[str]) -> None:
+    """
+    For each named source study, creates copies covering TEMPLATE_START_DATE
+    to TEMPLATE_END_DATE in DAYS_PER_PROJECT-day chunks. Copies whose names
+    already exist on the platform are skipped, so re-running is safe.
+    """
     template_bodies: list[TemplateBody] = list()
 
     headers = get_auth_headers()
     studies_info = await get_studies(headers)
 
-    seen_studies: set[str] = set()
+    seen_studies: set[str] = {study_info.name for study_info in studies_info}
 
     print("Generating Template Bodies")
-    for study_info in tqdm.tqdm(studies_info):
-        seen_studies.update([study_info.name])
-        for filter, city_num in filter_names:
-            if filter in study_info.name and filter not in seen_templates:
-                seen_templates.update([filter])
-                route_response = await get_route_response(study_info, headers)
-                template_bodies.extend(
-                    generate_templates_bodies(
-                        route_response, f"{project_name_filter}{city_num}"
-                    )
-                )
-    print("Creating template")
+    for source_name in template_source_names:
+        source_study = next(
+            (study_info for study_info in studies_info if study_info.name == source_name),
+            None,
+        )
+        if source_study is None:
+            print(f"No study named {source_name!r} found on the account - skipping")
+            continue
+        route_response = await get_route_response(source_study, headers)
+        template_bodies.extend(generate_templates_bodies(route_response, source_name))
 
+    print("Creating templates")
     for template_body in tqdm.tqdm(template_bodies):
         if template_body.name not in seen_studies:
             print(f"Attempting to upload {template_body.name}")
