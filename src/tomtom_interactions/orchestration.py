@@ -1,10 +1,12 @@
 from tomtom_interactions.get_traffic_studies import (
+    accept_study,
     get_studies,
     get_study_metrics,
     get_route_response,
 )
+from constants import EXPORT_SELECTION
 from tomtom_interactions.auth import get_auth_headers
-from tomtom_interactions.export_study import download_study_csv
+from tomtom_interactions.export_study import download_segment_csv, download_study_csv
 from helpers.formatting import get_dataframe
 from helpers.get_templates import generate_templates_bodies
 from tomtom_interactions.post_template_body import post_template
@@ -90,15 +92,36 @@ async def export_study_csvs(project_name_filter: list[str], save_dir: str) -> li
     if not matching_studies:
         raise Exception(f"No studies matched filters: {project_name_filter}")
 
+    # confirm any studies waiting on the sample-size preview so the platform
+    # computes their results; they become downloadable on a later run
+    pending_studies = [s for s in matching_studies if s.job_state == "NEED_CONFIRMATION"]
+    for study_info in pending_studies:
+        print(f"Accepting {study_info.name}")
+        await accept_study(study_info.id, headers)
+        await sleep(1)
+
     ready_studies = [s for s in matching_studies if s.job_state == "RESULTS_READY"]
     skipped = len(matching_studies) - len(ready_studies)
     if skipped:
         print(f"Skipping {skipped} matching studies that are not RESULTS_READY yet")
-    matching_studies = ready_studies
 
     downloaded_paths: list[Path] = list()
-    for study_info in tqdm.tqdm(matching_studies):
-        zip_path = await download_study_csv(study_info.id, headers, Path(save_dir))
+    for study_info in tqdm.tqdm(ready_studies):
+        if EXPORT_SELECTION == "segment":
+            # segment exports exceed the v1 endpoint's row cap; use the async
+            # export flow, which needs @ids from the study's detail response
+            detail = await get_route_response(study_info, headers)
+            zip_path = await download_segment_csv(
+                study_info.id,
+                time_set_id=detail.time_sets[0]["@id"],
+                date_range_id=detail.date_range[0]["@id"],
+                auth_headers=headers,
+                save_dir=Path(save_dir),
+            )
+        else:
+            zip_path = await download_study_csv(
+                study_info.id, headers, Path(save_dir), selection=EXPORT_SELECTION
+            )
         downloaded_paths.append(zip_path)
 
     return downloaded_paths

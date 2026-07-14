@@ -32,10 +32,13 @@ Endpoints used:
 
 - `GET /ts/?no_pagination=true` — all studies (`get_traffic_studies.py::get_studies`)
 - `GET /ts/{id}/` — study detail incl. `sample_detail` metrics (`get_route_response`)
-- `GET /ts/{id}/results/?export_format=csv&selection=route` — returns the CSV report as a zip, synchronously (`export_study.py::download_study_csv`)
+- `GET /ts/{id}/accept/` — confirm a NEED_CONFIRMATION study so results get computed (`accept_study`)
+- `GET /ts/{id}/results/?export_format=csv&selection=route` — returns the CSV report as a zip, synchronously (`export_study.py::download_study_csv`) — **but refuses anything over 20,000 rows**
 - `POST /ts/` — create a study report (`post_template_body.py::post_template`)
 
-Swagger schema: `https://inode.app/api/v1/flow/docs/?format=openapi` (works with the token header; the human-readable `/docs/` page needs a browser login).
+Because of the 20k-row cap, segment-level exports (~100k+ rows) go through the platform's internal async export instead (`export_study.py::download_segment_csv`): trigger `GET /api/road_analytics/traffic_stats/{id}/export/?selection=segment&...` (needs a valid `time_set`/`date_range` `@id` from the detail response or it 500s; the export contains all time sets/date ranges regardless), poll `check_export_status/`, then fetch `export_download/` (one-shot: the file is deleted server-side after the first download). The internal `/api/road_analytics/` endpoints accept the same token header.
+
+Swagger schemas (all work with the token header; the human-readable pages need a browser login): `https://inode.app/api/v1/flow/docs/?format=openapi` (traffic stats — this is the one that matters), `/api/v1/docs/` and `/api/v0/docs/` (SMATS hardware sensor APIs, unrelated).
 
 API quirks discovered by testing (do not "fix" these blindly):
 
@@ -52,7 +55,7 @@ All code lives under `src/`, and imports assume `src/` is on the path (i.e. `fro
 Three pipelines in `src/tomtom_interactions/orchestration.py`:
 
 1. **`get_results`** (entry `src/main.py`) — lists studies, keeps those whose names contain any of `STUDY_NAME_FORMATS` (`constants.py`), pulls each study's `sample_detail` summaries, parses `locationName` as `"<MiovisionID> <Direction>"`, then groups by `(project_name, miovision_id, date_range_name)` summing `average_sample_size` (directions collapse) and writes `.csv`/`.xlsx` based on the output path's extension (`helpers/formatting.py`).
-2. **`export_study_csvs`** (entry `src/export_main.py`) — downloads the platform's CSV report zip for each study matching `EXPORT_STUDY_NAME_FILTERS` (case-insensitive) and extracts it into the save dir.
+2. **`export_study_csvs`** (entry `src/export_main.py`) — for each study matching `EXPORT_STUDY_NAME_FILTERS` (case-insensitive): auto-accepts it if it's in NEED_CONFIRMATION (results become downloadable on a later run), then downloads the CSV report zip for every RESULTS_READY match and extracts it into the save dir. `EXPORT_SELECTION` in `constants.py` picks segment-level (per road segment; via the async export) or route-level (whole-route rollup; via the v1 results endpoint) rows.
 3. **`create_template_copies`** (entry `src/templates_main.py` — creates real studies on the platform, run deliberately) — for each study named in `TEMPLATE_SOURCE_STUDY_NAMES` (exact match), generates copies covering `TEMPLATE_START_DATE`→`TEMPLATE_END_DATE` in `DAYS_PER_PROJECT`-day chunks (one single-day date-range per day, `helpers/get_templates.py`), POSTing each. Copies whose names already exist on the platform are skipped, so re-running after a partial failure is safe. The source study's `dayToTimeRanges` time sets are converted to the POST's advanced `time_groups` form with each set extended to all seven days (`convert_time_sets`) — without that, the platform rejects date ranges falling on weekdays the source's time sets don't cover.
 
 Pydantic models are split by concern: `helpers/models.py` holds the study-list item (`StudyInfo`), the flat `StudyMetrics` output record, and `DateRange`; `tomtom_interactions/models.py` holds the detail-response schema (`RouteResponse`) and the `POST /ts/` body (`TemplateBody`). On a `ValidationError`, the raw JSON is appended to `errors.json` and the status code printed before re-raising — that output is the primary debugging aid when the API schema drifts.

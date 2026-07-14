@@ -69,6 +69,21 @@ async def get_study_metrics(
     return study_metrics
 
 
+async def accept_study(study_id: int, auth_headers: dict) -> None:
+    """
+    Confirms a study that is in NEED_CONFIRMATION so the platform proceeds
+    to compute its results.
+    """
+    request_url = f"{INODE_API_BASE}/ts/{study_id}/accept/"
+    async with ClientSession(headers=auth_headers) as session:
+        async with session.get(request_url) as response:
+            if response.status != 200:
+                raise Exception(
+                    f"Accepting study {study_id} failed with status "
+                    f"{response.status}: {await response.text()}"
+                )
+
+
 async def get_studies(auth_headers: dict) -> list[StudyInfo]:
     studies_endpoint = f"{INODE_API_BASE}/ts/?no_pagination=true&ordering=-create_time"
 

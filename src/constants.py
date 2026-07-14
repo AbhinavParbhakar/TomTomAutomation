@@ -10,6 +10,8 @@ INODE_API_BASE = "https://inode.app/api/v1/flow"
 
 STUDY_NAME_FORMATS = ["Updated"]
 EXPORT_STUDY_NAME_FILTERS = ["Whitemud Dr", "Calgary Trail", "23 Ave"]
+# "segment" for per-road-segment rows, "route" for whole-route rollups
+EXPORT_SELECTION = "segment"
 DATE_RANGE_MODEL_ARROW_TIME_FORMAT = "YYYY-MM-DD"
 # Exact names of the studies used as sources for template copies
 TEMPLATE_SOURCE_STUDY_NAMES = ["Whitemud Dr", "Calgary Trail", "23 Ave"]
