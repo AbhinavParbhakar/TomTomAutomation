@@ -37,8 +37,6 @@ EXPORT_COLUMNS = [
     "spd_p_95",
 ]
 
-EXCEL_MAX_ROWS_PER_SHEET = 1_048_575  # sheet limit of 1,048,576 minus the header row
-
 # filename stem of each road's segment csvs in the exports directory
 ROADS = ["whitemud-dr", "calgary-trail", "23-ave"]
 
@@ -58,31 +56,33 @@ def combine_road_csvs(road: str, exports_dir: Path) -> pd.DataFrame:
     return combined[EXPORT_COLUMNS]
 
 
-def write_excel(df: pd.DataFrame, save_path: Path) -> None:
-    """
-    Writes the dataframe to xlsx, splitting across sheets when it exceeds
-    Excel's per-sheet row limit.
-    """
-    with pd.ExcelWriter(save_path, engine="xlsxwriter") as writer:
-        for sheet_num, start in enumerate(range(0, len(df), EXCEL_MAX_ROWS_PER_SHEET), 1):
-            chunk = df.iloc[start : start + EXCEL_MAX_ROWS_PER_SHEET]
-            chunk.to_excel(writer, sheet_name=f"data_{sheet_num}", index=False)
-
-
 def main() -> None:
     exports_dir = Path("exports")
     save_dir = exports_dir / "combined"
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    for road in ROADS:
+    all_roads_path = save_dir / "all-roads_segments.csv"
+    total_rows = 0
+
+    for road_num, road in enumerate(ROADS):
         combined = combine_road_csvs(road, exports_dir)
-        save_path = save_dir / f"{road}_segments.xlsx"
-        write_excel(combined, save_path)
+        save_path = save_dir / f"{road}_segments.csv"
+        combined.to_csv(save_path, index=False)
+        # first road starts the all-roads file, the rest append without header
+        combined.to_csv(
+            all_roads_path,
+            mode="w" if road_num == 0 else "a",
+            header=road_num == 0,
+            index=False,
+        )
+        total_rows += len(combined)
         print(
             f"{road}: {len(combined):,} rows, "
             f"{combined['date_range_name'].nunique()} days, "
             f"{combined['segment_id'].nunique()} segments -> {save_path}"
         )
+
+    print(f"all roads: {total_rows:,} rows -> {all_roads_path}")
 
 
 if __name__ == "__main__":
